@@ -474,16 +474,16 @@ function migrasi(){
 const HAL_KATER=16;
 function halEf(o){return o.isi==='sebagian'?Math.max(1,(+o.halSampai||0)-(+o.halDari||0)+1):o.halaman}
 function tahapList(o){
-  if(o.dariStok)return URUT.filter(k=>k==='lem'||k==='potongBuku'||(k==='indexAbjad'&&o.bingkai));
+  if(o.dariStok)return URUT.filter(k=>k==='lem'||k==='potongBuku'||(k==='indexAbjad'&&(o.kamus||o.bingkai)));
   const isi=o.isi||'penuh',sm=o.sampul||'sendiri',L=[];
   if(isi!=='tidak')L.push('potongKertas','cetakIsi','lipat');
   if(isi!=='tidak'&&o.bingkai)L.push('cetakBingkai');
   if(isi==='penuh')L.push('seri');
   if(sm==='sendiri')L.push('potongKertasSampul');
   if(sm!=='tidak')L.push('cetakSampul','potongSampul');
-  if(sm!=='tidak'&&o.bingkai&&isi!=='tidak')L.push('laminasi');
+  if(sm!=='tidak'&&(o.kamus||o.bingkai))L.push('laminasi');
   if(isi==='penuh'&&sm!=='tidak')L.push('lem','potongBuku');
-  if(isi==='penuh'&&sm!=='tidak'&&o.bingkai)L.push('indexAbjad');
+  if(isi==='penuh'&&sm!=='tidak'&&(o.kamus||o.bingkai))L.push('indexAbjad');
   return URUT.filter(k=>L.includes(k));
 }
 function katerKey(o){return o.halDari+'-'+o.halSampai}
@@ -509,7 +509,7 @@ function lingkupIsi(o){
 function lingkupTeks(o){
   if(o.dariStok)return 'Lem dari stok gudang: pakai stok isi dan stok sampul yang sudah ada, tanpa cetak ulang';
   const sm=o.sampul||'sendiri';
-  return (o.bingkai?'Berbingkai (kamus) · ':'')+'Isi: '+(o.isi==='tidak'?'tidak dicetak':o.isi==='sebagian'?'sebagian, '+lingkupIsi(o):'buku utuh, '+fN(o.halaman)+' hal')+' · Sampul: '+(sm==='luar'?'percetakan luar ('+esc(o.vendor||'-')+', '+(o.hariLuar||3)+' hari)':sm==='tidak'?'tidak dicetak':'cetak sendiri');
+  return ((o.kamus||o.bingkai)?'Kamus · ':'')+'Isi: '+(o.isi==='tidak'?'tidak dicetak':o.isi==='sebagian'?'sebagian, '+lingkupIsi(o):'buku utuh, '+fN(o.halaman)+' hal')+' · Sampul: '+(sm==='luar'?'percetakan luar ('+esc(o.vendor||'-')+', '+(o.hariLuar||3)+' hari)':sm==='tidak'?'tidak dicetak':'cetak sendiri');
 }
 function hitung(o){
   const w=1+S.settings.waste/100;
@@ -552,7 +552,7 @@ function proyeksi(t){return t.stok+aktifOrderJudul(t).reduce((a,o)=>{const L=oj(
 function perluUlang(t){return t.stok<=t.min&&proyeksi(t)<=t.min}
 function buatCetakUlang(t,oto){
   const dl=new Date();dl.setDate(dl.getDate()+(t.hariUlang||7));dl.setHours(23,59,0,0);
-  return createOrder({judul:t.judul,pelanggan:t.penerbit,jumlah:t.qtyUlang,halaman:t.halaman,ukuran:t.ukuran,hplb:t.hplb,ups:t.ups,bahanIsi:t.bahanIsi,bahanSampul:t.bahanSampul,bingkai:!!t.bingkai,deadline:+dl,catatan:oto?'Cetak ulang otomatis: stok mendekati habis':'Cetak ulang dari menu Gudang',judulId:t.id,masukStok:true,cetakUlang:true});
+  return createOrder({judul:t.judul,pelanggan:t.penerbit,jumlah:t.qtyUlang,halaman:t.halaman,ukuran:t.ukuran,hplb:t.hplb,ups:t.ups,bahanIsi:t.bahanIsi,bahanSampul:t.bahanSampul,bingkai:!!t.bingkai,kamus:!!t.bingkai,deadline:+dl,catatan:oto?'Cetak ulang otomatis: stok mendekati habis':'Cetak ulang dari menu Gudang',judulId:t.id,masukStok:true,cetakUlang:true});
 }
 function cekCetakUlang(){
   let n=0;
@@ -1491,7 +1491,7 @@ function orderModal(){
    '<fieldset class="menus"><legend>Lingkup pekerjaan</legend><div style="display:grid;gap:12px">'+
    '<label class="f">Isi buku<select name="isi"><option value="penuh">Cetak isi buku utuh</option><option value="sebagian">Hanya sebagian halaman (kater)</option><option value="tidak">Tanpa isi (hanya sampul)</option></select></label>'+
    '<div id="o-sebagian" class="fg" hidden><label class="f">Kater ke-<small>'+HAL_KATER+' halaman per kater, kater 2 = hal 17–32</small><input name="kater" type="number" min="1" placeholder="Opsional"></label><label class="f">Dari halaman<input name="halDari" type="number" min="1"></label><label class="f">Sampai halaman<input name="halSampai" type="number" min="1"></label></div>'+
-   '<label class="f" id="o-bingkai"><span>Buku kamus / berbingkai</span><select name="bingkai"><option value="">Tidak, isi langsung dicetak</option><option value="1">Ya, cetak bingkai dulu, baru isi</option></select></label>'+
+   '<label class="f" id="o-bingkai"><span>Buku kamus</span><select name="bingkai"><option value="">Bukan kamus</option><option value="1">Kamus: cetak bingkai dulu, sampul dilaminasi di luar, buku di-index abjad di luar</option></select></label>'+
    '<label class="f">Sampul<select name="sampul"><option value="sendiri">Cetak sendiri</option><option value="luar">Dicetak di percetakan luar</option><option value="tidak">Tanpa sampul</option></select></label>'+
    '<div id="o-luar" class="fg" hidden><label class="f">Nama percetakan luar<input name="vendor"></label><label class="f">Lama pengerjaan (hari)<input name="hariLuar" type="number" min="1" value="3"></label></div>'+
    '</div></fieldset>'+
@@ -1506,7 +1506,7 @@ function orderModal(){
 function orderPreview(f){
   if(!f)return;
   const v=Object.fromEntries(new FormData(f));
-  const o={jumlah:+v.jumlah||0,halaman:+v.halaman||0,hplb:+v.hplb||1,ups:+v.ups||1,isi:v.isi||'penuh',halDari:+v.halDari||0,halSampai:+v.halSampai||0,sampul:v.sampul||'sendiri',hariLuar:+v.hariLuar||3,bingkai:v.bingkai==='1'&&(v.isi||'penuh')!=='tidak'};
+  const o={jumlah:+v.jumlah||0,halaman:+v.halaman||0,hplb:+v.hplb||1,ups:+v.ups||1,isi:v.isi||'penuh',halDari:+v.halDari||0,halSampai:+v.halSampai||0,sampul:v.sampul||'sendiri',hariLuar:+v.hariLuar||3,bingkai:v.bingkai==='1'&&(v.isi||'penuh')!=='tidak',kamus:v.bingkai==='1'};
   const q=hitung(o),res=reservasi(),L=tahapList(o);
   const tot=L.reduce((a,k)=>a+((k==='cetakSampul'&&o.sampul==='luar')||TAHAP[k].luarTahap?0:durasi(k,q[k])),0);
   const chk=(id,need,label)=>{const m=mat(id);if(!m)return '';const av=m.stok-(res[id]||0);return '<div>'+label+': perlu '+fN(need)+' '+esc(m.satuan)+', tersedia '+fN(av)+' → '+(av>=need?'<span class="pill ok">Cukup</span>':'<span class="pill bad">Kurang '+fN(need-av)+'</span>')+'</div>'};
@@ -1806,13 +1806,13 @@ function submitForm(form){
     if(!(n>0))return err('Isi jumlah buku yang dilem.');
     if(n>av)return err('Stok isi / sampul hanya cukup untuk '+fN(av)+' buku.');
     const p=v.deadline.split('-').map(Number);
-    createOrder({judul:x.judul,pelanggan:x.penerbit,jumlah:n,halaman:x.halaman,ukuran:x.ukuran,hplb:x.hplb,ups:x.ups,bahanIsi:x.bahanIsi,bahanSampul:x.bahanSampul,bingkai:!!x.bingkai,isi:'penuh',sampul:'sendiri',dariStok:true,masukStok:true,judulId:x.id,deadline:+new Date(p[0],p[1]-1,p[2],23,59),catatan:((v.catatan||'').trim()||'Lem dari stok isi dan sampul gudang')});
+    createOrder({judul:x.judul,pelanggan:x.penerbit,jumlah:n,halaman:x.halaman,ukuran:x.ukuran,hplb:x.hplb,ups:x.ups,bahanIsi:x.bahanIsi,bahanSampul:x.bahanSampul,bingkai:!!x.bingkai,kamus:!!x.bingkai,isi:'penuh',sampul:'sendiri',dariStok:true,masukStok:true,judulId:x.id,deadline:+new Date(p[0],p[1]-1,p[2],23,59),catatan:((v.catatan||'').trim()||'Lem dari stok isi dan sampul gudang')});
     ui.notice='Pesanan lem "'+x.judul+'" ('+fN(n)+' buku) dibuat dari stok gudang.';scheduleAll();ui.modal=null;commit();return;
   }
   if(t==='order'){
     const d={judul:v.judul.trim(),pelanggan:v.pelanggan.trim(),jumlah:+v.jumlah,halaman:+v.halaman,ukuran:v.ukuran,hplb:+v.hplb,ups:+v.ups,bahanIsi:v.bahanIsi,bahanSampul:v.bahanSampul,catatan:v.catatan.trim(),masukStok:!!v.masukStok,judulId:v.judulId||null};
     if(!(d.jumlah>0&&d.halaman>0&&d.hplb>0&&d.ups>0))return err('Jumlah, halaman, dan lembar cetak harus lebih dari 0.');
-    d.isi=v.isi||'penuh';d.sampul=v.sampul||'sendiri';d.bingkai=d.isi!=='tidak'&&v.bingkai==='1';
+    d.isi=v.isi||'penuh';d.sampul=v.sampul||'sendiri';d.kamus=v.bingkai==='1';d.bingkai=d.kamus&&d.isi!=='tidak';
     if(d.isi==='tidak'&&d.sampul==='tidak')return err('Pilih minimal satu pekerjaan: isi atau sampul.');
     if(d.isi==='sebagian'){
       d.halDari=Math.round(+v.halDari||0);d.halSampai=Math.round(+v.halSampai||0);
@@ -1823,7 +1823,7 @@ function submitForm(form){
     if(d.isi!=='tidak'&&!d.bahanIsi)return err('Pilih bahan isi. Tambahkan bahan lebih dulu di menu Bahan.');
     if(d.sampul==='sendiri'&&!d.bahanSampul)return err('Pilih bahan sampul. Tambahkan bahan lebih dulu di menu Bahan.');
     const p=v.deadline.split('-').map(Number);d.deadline=+new Date(p[0],p[1]-1,p[2],23,59);
-    if(!d.judulId&&d.masukStok){const x={id:nid('jd'),sku:nextSku(),pengarang:(v.pengarang||'').trim(),isbn:(v.isbn||'').trim(),stokIsi:0,stokSampul:0,stokLem:0,stokIndex:0,judul:d.judul,penerbit:d.pelanggan,ukuran:d.ukuran,halaman:d.halaman,hplb:d.hplb,ups:d.ups,bahanIsi:d.bahanIsi,bahanSampul:d.bahanSampul,bingkai:!!d.bingkai,stok:0,min:0,qtyUlang:Math.max(d.jumlah,100),hariUlang:7,auto:false};S.judul.push(x);d.judulId=x.id}
+    if(!d.judulId&&d.masukStok){const x={id:nid('jd'),sku:nextSku(),pengarang:(v.pengarang||'').trim(),isbn:(v.isbn||'').trim(),stokIsi:0,stokSampul:0,stokLem:0,stokIndex:0,judul:d.judul,penerbit:d.pelanggan,ukuran:d.ukuran,halaman:d.halaman,hplb:d.hplb,ups:d.ups,bahanIsi:d.bahanIsi,bahanSampul:d.bahanSampul,bingkai:!!d.kamus,stok:0,min:0,qtyUlang:Math.max(d.jumlah,100),hariUlang:7,auto:false};S.judul.push(x);d.judulId=x.id}
     createOrder(d);scheduleAll();ui.modal=null;commit();return;
   }
   if(t==='bagi'){
@@ -2132,7 +2132,7 @@ document.addEventListener('input',e=>{
     E.judul.readOnly=E.pelanggan.readOnly=E.pengarang.readOnly=E.isbn.readOnly=!!x;
     const h=document.getElementById('jdhint');
     if(h)h.textContent=x?'Cetak ulang '+judulLabel(x)+' · stok '+fN(x.stok)+' buku'+(x.isiDus>0?' ('+packTeks(x)+')':'')+'. Data buku diisi otomatis.':(val?'Tidak ada judul yang cocok, dibuat sebagai judul baru.':'Judul baru: isi data buku di bawah.');
-    if(x){E.judul.value=x.judul;E.pelanggan.value=x.penerbit;E.pengarang.value=x.pengarang||'';E.isbn.value=x.isbn||'';E.ukuran.value=x.ukuran;E.halaman.value=x.halaman;E.hplb.value=x.hplb;E.ups.value=x.ups;E.bahanIsi.value=x.bahanIsi;E.bahanSampul.value=x.bahanSampul;E.jumlah.value=x.qtyUlang;E.masukStok.checked=true;if(E.bingkai)E.bingkai.value=x.bingkai?'1':'';const bk=document.getElementById('o-bingkai');if(bk)bk.hidden=E.isi.value==='tidak'}
+    if(x){E.judul.value=x.judul;E.pelanggan.value=x.penerbit;E.pengarang.value=x.pengarang||'';E.isbn.value=x.isbn||'';E.ukuran.value=x.ukuran;E.halaman.value=x.halaman;E.hplb.value=x.hplb;E.ups.value=x.ups;E.bahanIsi.value=x.bahanIsi;E.bahanSampul.value=x.bahanSampul;E.jumlah.value=x.qtyUlang;E.masukStok.checked=true;if(E.bingkai)E.bingkai.value=x.bingkai?'1':''}
   }
   const f=e.target.closest('form[data-form="order"]');if(f)orderPreview(f);
   const l=e.target.closest('form[data-form="lapor"]');
@@ -2149,7 +2149,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const f=e.target.closest('form[data-form="order"]');
   if(f&&e.target.name==='ukuran'){const u=UKURAN[e.target.value];f.elements.hplb.value=u.hplb;f.elements.ups.value=u.ups;orderPreview(f)}
-  if(f&&(e.target.name==='isi'||e.target.name==='sampul')){const E=f.elements,sb=document.getElementById('o-sebagian'),lu=document.getElementById('o-luar');if(sb)sb.hidden=E.isi.value!=='sebagian';if(lu)lu.hidden=E.sampul.value!=='luar';const bk=document.getElementById('o-bingkai');if(bk)bk.hidden=E.isi.value==='tidak';orderPreview(f)}
+  if(f&&(e.target.name==='isi'||e.target.name==='sampul')){const E=f.elements,sb=document.getElementById('o-sebagian'),lu=document.getElementById('o-luar');if(sb)sb.hidden=E.isi.value!=='sebagian';if(lu)lu.hidden=E.sampul.value!=='luar';orderPreview(f)}
   if(f&&e.target.name==='kater'){const k=+e.target.value,E=f.elements;if(k>0){E.halDari.value=(k-1)*HAL_KATER+1;E.halSampai.value=Math.min(k*HAL_KATER,+E.halaman.value||k*HAL_KATER);orderPreview(f)}}
   const fu=e.target.closest('form[data-form="user"]');
   if(fu&&e.target.name==='peran'){const def=MENU_BAWAAN[e.target.value]||[];fu.querySelectorAll('input[name=menu]').forEach(c=>{c.checked=def.includes(c.value)})}
